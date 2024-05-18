@@ -1,12 +1,13 @@
 ﻿using BGMaterial.API.Filters;
 using BGMaterial.Application.Dtos;
 using BGMaterial.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BGMaterial.API.Controllers
 {
 
-    //[Authorize]
+    [Authorize]
     public class MaterialsController : CustomBaseController
     {
         private readonly IMaterialService _materialService;
@@ -28,7 +29,7 @@ namespace BGMaterial.API.Controllers
             var responseData = await _materialService.GetByIdAsync(id);
             return CreateActionResult(responseData);
         }
-        [HttpGet("GetPaged{pageIndex}/{pageSize}")]
+        [HttpGet("GetPaged/{pageIndex}/{pageSize}")]
         public async Task<IActionResult> GetPaged(int pageIndex, int pageSize)
         {
             var responseData = await _materialService.GetPagedAsync(pageIndex, pageSize);
