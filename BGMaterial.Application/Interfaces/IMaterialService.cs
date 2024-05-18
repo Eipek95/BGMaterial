@@ -11,6 +11,6 @@ namespace BGMaterial.Application.Interfaces
         Task<CustomResponseDto<NoContentDto>> AddAsync(CreateMaterialDto dto);
         Task<CustomResponseDto<NoContentDto>> UpdateAsync(UpdateMaterialDto dto);
         Task<CustomResponseDto<NoContentDto>> RemoveAsync(int id);
-
+        Task<CustomResponseDto<List<GetMaterialsDto>>> GetPagedAsync(int pageIndex, int pageSize);
     }
 }

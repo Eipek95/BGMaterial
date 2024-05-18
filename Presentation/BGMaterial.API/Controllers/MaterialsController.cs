@@ -28,6 +28,12 @@ namespace BGMaterial.API.Controllers
             var responseData = await _materialService.GetByIdAsync(id);
             return CreateActionResult(responseData);
         }
+        [HttpGet("GetPaged{pageIndex}/{pageSize}")]
+        public async Task<IActionResult> GetPaged(int pageIndex, int pageSize)
+        {
+            var responseData = await _materialService.GetPagedAsync(pageIndex, pageSize);
+            return CreateActionResult(responseData);
+        }
         [HttpGet("GetHighestListPriced")]
         public async Task<IActionResult> GetHighestListPriced()
         {
