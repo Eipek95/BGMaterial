@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace BGMaterial.API.Controllers
 {
-
     [Authorize]
     public class MaterialsController : CustomBaseController
     {

@@ -16,6 +16,7 @@ builder.Services.AddDbContext<MaterialContext>(x =>
     });
 });
 builder.Services.AddApiService(builder.Configuration);
+builder.Services.AddMemoryCache();
 var app = builder.Build();
 
 

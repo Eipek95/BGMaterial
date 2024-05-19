@@ -4,18 +4,23 @@ using BGMaterial.Application.Features.Mediator.Commands;
 using BGMaterial.Application.Features.Mediator.Queries;
 using BGMaterial.Application.Interfaces;
 using MediatR;
+using Microsoft.Extensions.Caching.Memory;
 using System.Net;
 namespace BGMaterial.Application.Services
 {
+
     public class MaterialService : IService, IMaterialService
     {
         private readonly IMediator _mediator;
         private readonly IMapper _mapper;
+        private readonly IMemoryCache _memoryCache;
+        private const string CacheKey = "materialCache";
 
-        public MaterialService(IMediator mediator, IMapper mapper)
+        public MaterialService(IMediator mediator, IMapper mapper, IMemoryCache memoryCache)
         {
             _mediator = mediator;
             _mapper = mapper;
+            _memoryCache = memoryCache;
         }
         public async Task<CustomResponseDto<NoContentDto>> AddAsync(CreateMaterialDto dto)
         {
@@ -27,13 +32,10 @@ namespace BGMaterial.Application.Services
             {
                 errors.Add($"Eklemeye çalıştığınız '{dto.Name}' isimli materyal zaten mevcut.");
             }
-
             if (values.Data.Any(x => x.Code.ToLower() == dto.Code.ToLower()))
             {
                 errors.Add($"Eklemeye çalıştığınız '{dto.Code}' kodlu materyal zaten mevcut.");
             }
-
-
             if (errors.Any())
             {
                 return CustomResponseDto<NoContentDto>.Fail((int)HttpStatusCode.BadRequest, errors);
@@ -41,18 +43,32 @@ namespace BGMaterial.Application.Services
 
             var newEntity = _mapper.Map<CreateMaterialCommand>(dto);
             await _mediator.Send(newEntity);
+            _memoryCache.Remove(CacheKey);
+            await GetAllAsync();
             return CustomResponseDto<NoContentDto>.Success((int)HttpStatusCode.Accepted);
         }
         public async Task<CustomResponseDto<List<GetMaterialsDto>>> GetAllAsync()
         {
-            var values = await _mediator.Send(new GetMaterialQuery());
-            if (!values.Any())
-            {
-                return CustomResponseDto<List<GetMaterialsDto>>.Fail((int)HttpStatusCode.NotFound, "Materiyal Bulunamadı");
-            }
-            var newValues = _mapper.Map<List<GetMaterialsDto>>(values);
-            return CustomResponseDto<List<GetMaterialsDto>>.Success((int)HttpStatusCode.Accepted, newValues);
 
+            if (!_memoryCache.TryGetValue(CacheKey, out List<GetMaterialsDto> newValues))
+            {
+                var values = await _mediator.Send(new GetMaterialQuery());
+                if (!values.Any())
+                {
+                    return CustomResponseDto<List<GetMaterialsDto>>.Fail((int)HttpStatusCode.NotFound, "Materiyal Bulunamadı");
+                }
+
+                newValues = _mapper.Map<List<GetMaterialsDto>>(values);
+
+                var cacheEntryOptions = new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5),
+                    Priority = CacheItemPriority.Normal
+                };
+
+                _memoryCache.Set(CacheKey, newValues, cacheEntryOptions);
+            }
+            return CustomResponseDto<List<GetMaterialsDto>>.Success((int)HttpStatusCode.Accepted, newValues);
         }
 
         public async Task<CustomResponseDto<List<GetMaterialByCodeDto>>> GetByCodeAsync(string code)
@@ -79,8 +95,8 @@ namespace BGMaterial.Application.Services
 
         public async Task<CustomResponseDto<GetMaterialsDto>> GetHighestListPricedAsync()
         {
-            var values = await _mediator.Send(new GetMaterialQuery());
-            var value = values.OrderByDescending(x => x.ListPrice).FirstOrDefault();
+            var values = await GetAllAsync();
+            var value = values.Data.OrderByDescending(x => x.ListPrice).FirstOrDefault();
             if (values == null)
             {
                 return CustomResponseDto<GetMaterialsDto>.Fail((int)HttpStatusCode.NotFound, "materyal bulunamadı");
@@ -113,6 +129,8 @@ namespace BGMaterial.Application.Services
                 return CustomResponseDto<NoContentDto>.Fail((int)HttpStatusCode.NotFound, $"{id} numaralı materyal bulunamadı");
             }
             await _mediator.Send(new RemoveMaterialCommand(id));
+            _memoryCache.Remove(CacheKey);
+            await GetAllAsync();
             return CustomResponseDto<NoContentDto>.Success((int)HttpStatusCode.Accepted);
 
         }
@@ -143,6 +161,8 @@ namespace BGMaterial.Application.Services
             }
             var entity = _mapper.Map<UpdateMaterialCommand>(dto);
             await _mediator.Send(entity);
+            _memoryCache.Remove(CacheKey);
+            await GetAllAsync();
             return CustomResponseDto<NoContentDto>.Success(204);
         }
     }
